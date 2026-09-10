@@ -51,6 +51,7 @@ async function squareFetch(path, options = {}) {
       : "Square request failed (" + res.status + ")";
     const err = new Error(detail);
     if (res.status === 401 || res.status === 403) err.isAuth = true;
+    if (res.status === 404) err.isNotFound = true;
     throw err;
   }
   return json || {};
@@ -80,19 +81,38 @@ function buildDescription(d) {
 async function pushDesign(design) {
   const { locationId } = getConfig();
 
+  // Start from whatever we have on file, but fall back to creating a brand
+  // new item/image if what we have on file was deleted on the Square side
+  // since the last push — otherwise we'd try to update an object that no
+  // longer exists and the whole push would fail.
+  let itemId = design.square_item_id || null;
+  let variationId = design.square_variation_id || null;
+  let imageId = design.square_image_id || null;
+  let imageUrlSynced = design.square_image_url || null;
   let itemVersion, variationVersion;
-  if (design.square_item_id) {
-    const existing = await squareFetch("/v2/catalog/object/" + encodeURIComponent(design.square_item_id));
-    itemVersion = existing.object.version;
-    const existingVariation = design.square_variation_id
-      ? existing.object.item_data.variations.find(v => v.id === design.square_variation_id)
-      : null;
-    if (existingVariation) variationVersion = existingVariation.version;
+  let wasRecreated = false;
+
+  if (itemId) {
+    try {
+      const existing = await squareFetch("/v2/catalog/object/" + encodeURIComponent(itemId));
+      if (existing.object.is_deleted) throw Object.assign(new Error("deleted"), { isNotFound: true });
+      itemVersion = existing.object.version;
+      const existingVariation = variationId
+        ? existing.object.item_data.variations.find(v => v.id === variationId)
+        : null;
+      if (existingVariation) variationVersion = existingVariation.version;
+    } catch (err) {
+      if (!err.isNotFound) throw err;
+      // item was deleted in Square — forget the old ids and recreate fresh,
+      // including a fresh image upload since the old one likely went with it
+      itemId = null; variationId = null; imageId = null; imageUrlSynced = null;
+      wasRecreated = true;
+    }
   }
 
   const itemVariation = {
     type: "ITEM_VARIATION",
-    id: design.square_variation_id || "#variation",
+    id: variationId || "#variation",
     item_variation_data: {
       name: "Regular",
       pricing_type: "FIXED_PRICING",
@@ -104,7 +124,7 @@ async function pushDesign(design) {
 
   const item = {
     type: "ITEM",
-    id: design.square_item_id || "#item",
+    id: itemId || "#item",
     item_data: {
       name: design.title,
       description: buildDescription(design),
@@ -122,8 +142,8 @@ async function pushDesign(design) {
   });
 
   const savedItem = upsertRes.catalog_object;
-  const itemId = savedItem.id;
-  const variationId = savedItem.item_data.variations[0].id;
+  itemId = savedItem.id;
+  variationId = savedItem.item_data.variations[0].id;
 
   const result = {
     square_item_id: itemId,
@@ -132,17 +152,21 @@ async function pushDesign(design) {
   };
 
   if (design.image_url) {
-    const needsImage = !design.square_image_id || design.square_image_url !== design.image_url;
+    const needsImage = !imageId || imageUrlSynced !== design.image_url;
     if (needsImage) {
-      const imageId = await uploadImage({
+      imageId = await uploadImage({
         imageUrl: design.image_url,
         itemId,
-        existingImageId: design.square_image_id,
+        existingImageId: imageId,
         caption: design.title
       });
       result.square_image_id = imageId;
       result.square_image_url = design.image_url;
     }
+  } else if (wasRecreated) {
+    // no photo to re-upload, but clear the stale image reference from the deleted item
+    result.square_image_id = null;
+    result.square_image_url = null;
   }
 
   return result;
@@ -167,13 +191,8 @@ async function normalizeImageForSquare(buffer) {
   return { buffer: out, contentType: "image/jpeg", filename: "design.jpg" };
 }
 
-async function uploadImage({ imageUrl, itemId, existingImageId, caption }) {
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) throw new Error("Couldn't download design image to upload to Square");
-  const raw = Buffer.from(await imgRes.arrayBuffer());
-  const { buffer, contentType, filename } = await normalizeImageForSquare(raw);
+async function postImage({ buffer, contentType, filename, itemId, existingImageId, caption }) {
   const blob = new Blob([buffer], { type: contentType });
-
   const request = existingImageId
     ? { idempotency_key: idempotencyKey() }
     : {
@@ -192,6 +211,25 @@ async function uploadImage({ imageUrl, itemId, existingImageId, caption }) {
 
   const res = await squareFetch(path, { method: "POST", body: form });
   return res.image.id;
+}
+
+async function uploadImage({ imageUrl, itemId, existingImageId, caption }) {
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) throw new Error("Couldn't download design image to upload to Square");
+  const raw = Buffer.from(await imgRes.arrayBuffer());
+  const normalized = await normalizeImageForSquare(raw);
+
+  if (!existingImageId) {
+    return postImage(Object.assign({}, normalized, { itemId, caption }));
+  }
+  try {
+    return await postImage(Object.assign({}, normalized, { existingImageId, caption }));
+  } catch (err) {
+    if (!err.isNotFound) throw err;
+    // the image we were about to update was itself deleted in Square —
+    // create a fresh one and link it to the item instead
+    return postImage(Object.assign({}, normalized, { itemId, caption }));
+  }
 }
 
 module.exports = { isConfigured, pushDesign };
