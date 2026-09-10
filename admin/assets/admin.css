@@ -7,7 +7,7 @@ body{ padding-bottom:60px; }
 .topbar .spacer{ flex:1; }
 .btn{
   padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface);
-  color:var(--text); font-size:0.82rem; cursor:pointer;
+  color:var(--text); font-size:0.82rem; cursor:pointer; text-decoration:none; display:inline-block;
 }
 .btn.primary{ background:var(--teal); border-color:var(--teal); color:#0d1513; font-weight:600; }
 .btn:disabled{ opacity:0.5; cursor:default; }
