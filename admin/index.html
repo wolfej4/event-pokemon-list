@@ -88,9 +88,18 @@
       <div id="square-status-line" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Checking…</div>
       <button class="btn small" id="square-push-all-btn">Push all visible designs to Square</button>
       <span class="row-status" id="square-push-all-status"></span>
-      <div style="font-size:0.76rem;color:var(--text-faint);margin-top:10px;">
+      <div style="font-size:0.76rem;color:var(--text-faint);margin:10px 0;">
         Creates/updates each design in your Square catalog with its photo and description, price left at $0 so you can set it in Square. Also available per-design in the table below.
         Set via environment variables (SQUARE_ACCESS_TOKEN, SQUARE_LOCATION_ID, optional SQUARE_ENVIRONMENT=sandbox) — not editable here. See the README.
+      </div>
+      <div id="square-failures-wrap" style="display:none;margin-top:14px;">
+        <div style="font-size:0.8rem;color:var(--red);margin-bottom:8px;" id="square-failures-heading"></div>
+        <table>
+          <thead>
+            <tr><th>Design</th><th>Error</th><th>When</th><th></th></tr>
+          </thead>
+          <tbody id="square-failure-rows"></tbody>
+        </table>
       </div>
     </div>
 

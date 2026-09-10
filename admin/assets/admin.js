@@ -21,6 +21,9 @@
   const squareStatusLine = document.getElementById("square-status-line");
   const squarePushAllBtn = document.getElementById("square-push-all-btn");
   const squarePushAllStatus = document.getElementById("square-push-all-status");
+  const squareFailuresWrap = document.getElementById("square-failures-wrap");
+  const squareFailuresHeading = document.getElementById("square-failures-heading");
+  const squareFailureRowsEl = document.getElementById("square-failure-rows");
   const eventModeToggle = document.getElementById("event-mode-toggle");
   const kioskModeToggle = document.getElementById("kiosk-mode-toggle");
   const kioskIdleMinutes = document.getElementById("kiosk-idle-minutes");
@@ -197,6 +200,65 @@
     const r = await fetch("/api/admin/designs").then(r => r.json());
     allDesigns = r.data || [];
     renderRows();
+    renderSquareFailures();
+  }
+
+  function renderSquareFailures(){
+    const failed = allDesigns.filter(d => d.square_sync_error);
+    if(!failed.length){
+      squareFailuresWrap.style.display = "none";
+      return;
+    }
+    failed.sort((a, b) => (b.square_sync_error_at || "").localeCompare(a.square_sync_error_at || ""));
+    squareFailuresWrap.style.display = "block";
+    squareFailuresHeading.textContent = failed.length + " design" + (failed.length === 1 ? "" : "s") + " failed to sync to Square:";
+    squareFailureRowsEl.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    for(const d of failed) frag.appendChild(buildSquareFailureRow(d));
+    squareFailureRowsEl.appendChild(frag);
+  }
+
+  function buildSquareFailureRow(d){
+    const tr = document.createElement("tr");
+    const when = d.square_sync_error_at ? new Date(d.square_sync_error_at) : null;
+    const whenStr = when && !isNaN(when) ? when.toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }) : "—";
+
+    const tdTitle = document.createElement("td");
+    tdTitle.textContent = d.title;
+    tr.appendChild(tdTitle);
+
+    const tdErr = document.createElement("td");
+    tdErr.style.color = "var(--red)";
+    tdErr.textContent = d.square_sync_error;
+    tr.appendChild(tdErr);
+
+    const tdWhen = document.createElement("td");
+    tdWhen.textContent = whenStr;
+    tr.appendChild(tdWhen);
+
+    const tdRetry = document.createElement("td");
+    const retryBtn = document.createElement("button");
+    retryBtn.className = "btn small";
+    retryBtn.textContent = "Retry";
+    retryBtn.disabled = !squareConfigured;
+    retryBtn.addEventListener("click", async () => {
+      retryBtn.disabled = true;
+      retryBtn.textContent = "Retrying…";
+      try{
+        const res = await fetch("/api/admin/designs/" + encodeURIComponent(d.slug) + "/square-push", { method: "POST" });
+        const j = await res.json();
+        if(!res.ok) throw new Error(j.error || "push failed");
+        await loadDesigns();
+      }catch(err){
+        retryBtn.disabled = !squareConfigured;
+        retryBtn.textContent = "Retry";
+        await loadDesigns(); // refresh so the (still-failing) error message / timestamp is current
+      }
+    });
+    tdRetry.appendChild(retryBtn);
+    tr.appendChild(tdRetry);
+
+    return tr;
   }
 
   searchEl.addEventListener("input", renderRows);
@@ -255,6 +317,18 @@
       pushSelectedBtn.disabled = selectedSlugs.size === 0 || !squareConfigured;
     }
   });
+
+  function setSquareRowStatus(el, d){
+    const failedAfterSync = d.square_sync_error &&
+      (!d.square_synced_at || (d.square_sync_error_at || "") > d.square_synced_at);
+    if(failedAfterSync){
+      el.textContent = "Failed: " + d.square_sync_error;
+      el.style.color = "var(--red)";
+    } else {
+      el.textContent = d.square_synced_at ? "Synced" : "";
+      el.style.color = "";
+    }
+  }
 
   function buildRow(d){
     const tr = document.createElement("tr");
@@ -320,19 +394,25 @@
     const squareStatus = document.createElement("div");
     squareStatus.className = "row-status";
     squareStatus.style.display = "block";
-    squareStatus.textContent = d.square_synced_at ? "Synced" : "";
+    setSquareRowStatus(squareStatus, d);
     squareBtn.addEventListener("click", async () => {
       squareBtn.disabled = true;
       squareStatus.textContent = "Pushing…";
+      squareStatus.style.color = "";
       try{
         const res = await fetch("/api/admin/designs/" + encodeURIComponent(d.slug) + "/square-push", { method: "POST" });
         const j = await res.json();
         if(!res.ok) throw new Error(j.error || "push failed");
         Object.assign(d, j.data);
+        d.square_sync_error = null;
         squareBtn.textContent = "Update";
-        squareStatus.textContent = "Synced";
+        setSquareRowStatus(squareStatus, d);
+        renderSquareFailures();
       }catch(err){
-        squareStatus.textContent = "Failed: " + err.message;
+        d.square_sync_error = err.message;
+        d.square_sync_error_at = new Date().toISOString();
+        setSquareRowStatus(squareStatus, d);
+        renderSquareFailures();
       }finally{
         squareBtn.disabled = !squareConfigured;
       }
