@@ -123,21 +123,43 @@
     render();
   });
 
+  // ---- Pokémon type colors (matching the games' type-badge palette) ----
+  const TYPE_COLORS = {
+    normal:"#A8A878", fire:"#F08030", water:"#6890F0", electric:"#F8D030",
+    grass:"#78C850", ice:"#98D8D8", fighting:"#C03028", poison:"#A040A0",
+    ground:"#E0C068", flying:"#A890F0", psychic:"#F85888", bug:"#A8B820",
+    rock:"#B8A038", ghost:"#705898", dragon:"#7038F8", dark:"#705848",
+    steel:"#B8B8D0", fairy:"#EE99AC"
+  };
+  function typeColor(t){ return TYPE_COLORS[String(t).toLowerCase()] || "#68A090"; }
+
   chipRow.addEventListener("click", (e) => {
     const btn = e.target.closest(".chip");
     if(!btn) return;
+    const wasActive = btn.classList.contains("active");
     chipRow.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    currentFilter.cat = btn.dataset.cat;
+    if(wasActive && btn.dataset.cat !== "all"){
+      chipRow.querySelector('[data-cat="all"]').classList.add("active");
+      currentFilter.cat = "all";
+    } else {
+      btn.classList.add("active");
+      currentFilter.cat = btn.dataset.cat;
+    }
     render();
   });
 
   typeChipRow.addEventListener("click", (e) => {
     const btn = e.target.closest(".chip");
     if(!btn) return;
+    const wasActive = btn.classList.contains("active");
     typeChipRow.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    currentFilter.type = btn.dataset.type;
+    if(wasActive && btn.dataset.type !== "all"){
+      typeChipRow.querySelector('[data-type="all"]').classList.add("active");
+      currentFilter.type = "all";
+    } else {
+      btn.classList.add("active");
+      currentFilter.type = btn.dataset.type;
+    }
     render();
   });
 
@@ -158,9 +180,13 @@
     const frag = document.createDocumentFragment();
     for(const t of sorted){
       const btn = document.createElement("button");
-      btn.className = "chip";
+      btn.className = "chip chip-type";
       btn.dataset.type = t;
       btn.textContent = t;
+      const color = typeColor(t);
+      btn.style.background = color;
+      btn.style.borderColor = color;
+      btn.style.color = "#fff";
       frag.appendChild(btn);
     }
     typeChipRow.appendChild(frag);
@@ -444,10 +470,14 @@
     if(d.image_url) html += '<img class="modal-hero" src="' + d.image_url + '" alt="">';
     html += '<div class="modal-body">';
     html += '<h2>' + escapeHtml(d.title) + '</h2>';
-    let subParts = [];
-    if(poke) subParts.push((poke.types||[]).join(" / "));
-    if(d.is_extra) subParts.push("limited item");
-    html += '<div class="modal-sub">' + escapeHtml(subParts.join(" · ")) + '</div>';
+    html += '<div class="modal-sub">';
+    if(poke && poke.types && poke.types.length){
+      html += '<span class="type-badges">' + poke.types.map(t =>
+        '<span class="type-badge" style="background:' + typeColor(t) + '">' + escapeHtml(t) + '</span>'
+      ).join("") + '</span>';
+    }
+    if(d.is_extra) html += '<span class="modal-sub-extra">limited item</span>';
+    html += '</div>';
     if(poke && poke.description) html += '<div class="modal-flavor">' + escapeHtml(poke.description) + '</div>';
 
     html += '<div class="stat-grid">';
