@@ -24,6 +24,10 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+      # Square catalog push — leave unset to disable
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-}
+      SQUARE_LOCATION_ID: ${SQUARE_LOCATION_ID:-}
+      SQUARE_ENVIRONMENT: ${SQUARE_ENVIRONMENT:-}
     volumes:
       - n3d_catalog_data:/app/data
 

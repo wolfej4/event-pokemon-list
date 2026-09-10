@@ -84,6 +84,17 @@
     </div>
 
     <div class="panel">
+      <h2>Square catalog push</h2>
+      <div id="square-status-line" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Checking…</div>
+      <button class="btn small" id="square-push-all-btn">Push all visible designs to Square</button>
+      <span class="row-status" id="square-push-all-status"></span>
+      <div style="font-size:0.76rem;color:var(--text-faint);margin-top:10px;">
+        Creates/updates each design in your Square catalog with its photo and description, price left at $0 so you can set it in Square. Also available per-design in the table below.
+        Set via environment variables (SQUARE_ACCESS_TOKEN, SQUARE_LOCATION_ID, optional SQUARE_ENVIRONMENT=sandbox) — not editable here. See the README.
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>Email quotes (SMTP)</h2>
       <div id="smtp-status-line" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Checking…</div>
       <button class="btn small" id="smtp-test-btn">Send test connection check</button>
@@ -129,6 +140,7 @@
             <th>Shop link</th>
             <th>Visible</th>
             <th>Featured</th>
+            <th>Square</th>
             <th></th>
           </tr>
         </thead>

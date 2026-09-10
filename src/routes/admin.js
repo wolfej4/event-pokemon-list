@@ -2,6 +2,7 @@
 const express = require("express");
 const db = require("../db");
 const n3d = require("../n3dClient");
+const square = require("../squareClient");
 const mailer = require("../mailer");
 const { checkPassword, requireAdmin } = require("../auth");
 
@@ -174,6 +175,68 @@ router.get("/key-status", async (req, res) => {
     res.json({ ok: true, info });
   } catch (err) {
     res.status(err.isAuth ? 401 : 502).json({ ok: false, error: err.message });
+  }
+});
+
+// ---- Square catalog push ----
+router.get("/square-status", (req, res) => {
+  res.json({ configured: square.isConfigured() });
+});
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function pushOne(slug) {
+  const design = db.getDesign(slug);
+  if (!design) {
+    const err = new Error("not_found");
+    throw err;
+  }
+  const fields = await square.pushDesign(design);
+  return db.setSquareFields(slug, fields);
+}
+
+router.post("/designs/:slug/square-push", async (req, res) => {
+  if (!square.isConfigured()) {
+    return res.status(400).json({ error: "Square isn't configured — set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID." });
+  }
+  try {
+    const saved = await pushOne(req.params.slug);
+    res.json({ ok: true, data: saved });
+  } catch (err) {
+    if (err.message === "not_found") return res.status(404).json({ error: "not_found" });
+    res.status(err.isAuth ? 502 : 500).json({ error: err.message || "square_push_failed" });
+  }
+});
+
+let squarePushInProgress = false;
+
+router.post("/square-push-all", async (req, res) => {
+  if (!square.isConfigured()) {
+    return res.status(400).json({ error: "Square isn't configured — set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID." });
+  }
+  if (squarePushInProgress) {
+    return res.status(409).json({ error: "square_push_already_running" });
+  }
+  const slugs = Array.isArray(req.body && req.body.slugs) && req.body.slugs.length
+    ? req.body.slugs
+    : db.allDesigns().filter(d => d.visible !== false).map(d => d.slug);
+
+  squarePushInProgress = true;
+  const failures = [];
+  let pushed = 0;
+  try {
+    for (const slug of slugs) {
+      try {
+        await pushOne(slug);
+        pushed++;
+      } catch (err) {
+        failures.push({ slug, error: err.message || "failed" });
+      }
+      await sleep(150); // be polite to Square's rate limits
+    }
+    res.json({ ok: true, pushed, failed: failures.length, failures });
+  } finally {
+    squarePushInProgress = false;
   }
 });
 

@@ -18,6 +18,9 @@
   const smtpStatusLine = document.getElementById("smtp-status-line");
   const smtpTestBtn = document.getElementById("smtp-test-btn");
   const smtpTestStatus = document.getElementById("smtp-test-status");
+  const squareStatusLine = document.getElementById("square-status-line");
+  const squarePushAllBtn = document.getElementById("square-push-all-btn");
+  const squarePushAllStatus = document.getElementById("square-push-all-status");
   const eventModeToggle = document.getElementById("event-mode-toggle");
   const kioskModeToggle = document.getElementById("kiosk-mode-toggle");
   const kioskIdleMinutes = document.getElementById("kiosk-idle-minutes");
@@ -47,6 +50,7 @@
   async function showDashboard(){
     loginScreen.style.display = "none";
     dashboard.style.display = "block";
+    await loadSquareStatus();
     await Promise.all([loadSettings(), loadDesigns(), loadSmtpStatus(), loadQuotes()]);
   }
 
@@ -152,6 +156,38 @@
     }
   });
 
+  // ---- Square catalog push ----
+  let squareConfigured = false;
+  async function loadSquareStatus(){
+    try{
+      const r = await fetch("/api/admin/square-status").then(r => r.json());
+      squareConfigured = !!r.configured;
+      squareStatusLine.textContent = squareConfigured
+        ? "Square is configured — designs can be pushed to your Square catalog."
+        : "Square is not configured — set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID in the environment to enable this.";
+      squarePushAllBtn.disabled = !squareConfigured;
+    }catch(err){
+      squareStatusLine.textContent = "Couldn't check Square status.";
+    }
+  }
+  squarePushAllBtn.addEventListener("click", async () => {
+    squarePushAllBtn.disabled = true;
+    squarePushAllStatus.textContent = "Pushing to Square — this can take a moment…";
+    try{
+      const res = await fetch("/api/admin/square-push-all", {
+        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({})
+      });
+      const j = await res.json();
+      if(!res.ok) throw new Error(j.error || "push failed");
+      squarePushAllStatus.textContent = "Done — " + j.pushed + " pushed" + (j.failed ? ", " + j.failed + " failed" : "") + ".";
+      await loadDesigns();
+    }catch(err){
+      squarePushAllStatus.textContent = "Failed: " + err.message;
+    }finally{
+      squarePushAllBtn.disabled = !squareConfigured;
+    }
+  });
+
   // ---- designs ----
   async function loadDesigns(){
     const r = await fetch("/api/admin/designs").then(r => r.json());
@@ -213,6 +249,35 @@
     featCheck.type = "checkbox"; featCheck.checked = !!d.featured;
     tdFeatured.appendChild(featCheck);
     tr.appendChild(tdFeatured);
+
+    const tdSquare = document.createElement("td");
+    const squareBtn = document.createElement("button");
+    squareBtn.className = "btn small";
+    squareBtn.textContent = d.square_item_id ? "Update" : "Push";
+    squareBtn.disabled = !squareConfigured;
+    const squareStatus = document.createElement("div");
+    squareStatus.className = "row-status";
+    squareStatus.style.display = "block";
+    squareStatus.textContent = d.square_synced_at ? "Synced" : "";
+    squareBtn.addEventListener("click", async () => {
+      squareBtn.disabled = true;
+      squareStatus.textContent = "Pushing…";
+      try{
+        const res = await fetch("/api/admin/designs/" + encodeURIComponent(d.slug) + "/square-push", { method: "POST" });
+        const j = await res.json();
+        if(!res.ok) throw new Error(j.error || "push failed");
+        Object.assign(d, j.data);
+        squareBtn.textContent = "Update";
+        squareStatus.textContent = "Synced";
+      }catch(err){
+        squareStatus.textContent = "Failed: " + err.message;
+      }finally{
+        squareBtn.disabled = !squareConfigured;
+      }
+    });
+    tdSquare.appendChild(squareBtn);
+    tdSquare.appendChild(squareStatus);
+    tr.appendChild(tdSquare);
 
     const tdSave = document.createElement("td");
     const saveBtn = document.createElement("button");
