@@ -4,7 +4,7 @@ body{ padding-bottom:60px; }
   position:sticky; top:0; background:var(--bg); z-index:10;
 }
 .topbar h1{ font-size:1.05rem; margin:0; font-weight:650; }
-.topbar .spacer{ flex:1; }
+.spacer{ flex:1; }
 .btn{
   padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface);
   color:var(--text); font-size:0.82rem; cursor:pointer; text-decoration:none; display:inline-block;

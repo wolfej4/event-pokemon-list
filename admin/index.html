@@ -130,10 +130,14 @@
       <h2>Designs</h2>
       <div class="filter-bar">
         <input id="admin-search" type="text" placeholder="Filter by name…">
+        <div class="spacer"></div>
+        <span id="selected-count" style="font-size:0.78rem;color:var(--text-faint);">0 selected</span>
+        <button class="btn small" id="push-selected-btn" disabled>Push selected to Square</button>
       </div>
       <table>
         <thead>
           <tr>
+            <th><input type="checkbox" id="select-all-checkbox"></th>
             <th></th>
             <th>Design</th>
             <th>Price (USD)</th>
