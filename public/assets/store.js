@@ -6,7 +6,7 @@
     businessName: "", businessEmail: "", quoteEmailEnabled: false,
     eventModeEnabled: false, kioskModeEnabled: false, kioskIdleMinutes: 2
   };
-  let currentFilter = { cat: "all", q: "" };
+  let currentFilter = { cat: "all", q: "", type: "all" };
 
   const grid = document.getElementById("grid");
   const featuredSection = document.getElementById("featured-section");
@@ -15,6 +15,7 @@
   const emptyState = document.getElementById("empty-state");
   const searchInput = document.getElementById("search-input");
   const chipRow = document.getElementById("category-chips");
+  const typeChipRow = document.getElementById("type-chips");
   const businessNameEl = document.getElementById("business-name");
   const heroSub = document.getElementById("hero-sub");
   const modalBackdrop = document.getElementById("modal-backdrop");
@@ -79,6 +80,7 @@
       }catch(e){}
       offlineBanner.classList.remove("show");
       applySettingsUi();
+      buildTypeChips();
       render();
       updateCartUi();
       startKioskTimer();
@@ -93,6 +95,7 @@
         settings = cachedSettings;
         designs = cachedDesigns.designs || [];
         applySettingsUi();
+        buildTypeChips();
         render();
         updateCartUi();
         startKioskTimer();
@@ -129,9 +132,44 @@
     render();
   });
 
+  typeChipRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip");
+    if(!btn) return;
+    typeChipRow.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter.type = btn.dataset.type;
+    render();
+  });
+
+  function buildTypeChips(){
+    const types = new Set();
+    for(const d of designs){
+      if(d.pokemon && Array.isArray(d.pokemon.types)){
+        for(const t of d.pokemon.types) if(t) types.add(t);
+      }
+    }
+    const sorted = Array.from(types).sort((a, b) => a.localeCompare(b));
+    typeChipRow.style.display = sorted.length ? "flex" : "none";
+    if(!sorted.length){
+      currentFilter.type = "all";
+      return;
+    }
+    typeChipRow.innerHTML = '<button class="chip active" data-type="all">All types</button>';
+    const frag = document.createDocumentFragment();
+    for(const t of sorted){
+      const btn = document.createElement("button");
+      btn.className = "chip";
+      btn.dataset.type = t;
+      btn.textContent = t;
+      frag.appendChild(btn);
+    }
+    typeChipRow.appendChild(frag);
+  }
+
   function render(){
     let list = designs;
     if(currentFilter.cat !== "all") list = list.filter(d => d.category === currentFilter.cat);
+    if(currentFilter.type !== "all") list = list.filter(d => d.pokemon && Array.isArray(d.pokemon.types) && d.pokemon.types.includes(currentFilter.type));
     if(currentFilter.q){
       const q = currentFilter.q;
       list = list.filter(d => {
@@ -147,7 +185,7 @@
     // filters the whole catalog down to featured items server-side) and only
     // at the default view — once someone searches or picks a category, just
     // show the flat filtered results like any other catalog.
-    const showFeaturedSplit = !settings.eventModeEnabled && currentFilter.cat === "all" && !currentFilter.q &&
+    const showFeaturedSplit = !settings.eventModeEnabled && currentFilter.cat === "all" && currentFilter.type === "all" && !currentFilter.q &&
       designs.some(d => d.is_featured);
 
     if(showFeaturedSplit){
@@ -383,9 +421,10 @@
     closeModal();
     closeQuoteModal();
     cart = []; saveCart();
-    currentFilter = { cat: "all", q: "" };
+    currentFilter = { cat: "all", q: "", type: "all" };
     searchInput.value = "";
     chipRow.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.cat === "all"));
+    typeChipRow.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.type === "all"));
     window.scrollTo({ top: 0, behavior: "auto" });
     render();
     showKioskToast("Ready for the next guest");
