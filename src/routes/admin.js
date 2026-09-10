@@ -1,0 +1,209 @@
+"use strict";
+const express = require("express");
+const db = require("../db");
+const n3d = require("../n3dClient");
+const mailer = require("../mailer");
+const { checkPassword, requireAdmin } = require("../auth");
+
+const router = express.Router();
+
+// ---- auth ----
+router.post("/login", (req, res) => {
+  const { password } = req.body || {};
+  if (!checkPassword(password)) {
+    return res.status(401).json({ error: "wrong_password" });
+  }
+  req.session.isAdmin = true;
+  res.json({ ok: true });
+});
+
+router.post("/logout", (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+router.get("/session", (req, res) => {
+  res.json({ isAdmin: !!(req.session && req.session.isAdmin) });
+});
+
+// everything below requires a logged-in admin
+router.use(requireAdmin);
+
+// ---- designs ----
+router.get("/designs", (req, res) => {
+  const list = db.allDesigns().sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  res.json({ data: list });
+});
+
+router.post("/designs/:slug", (req, res) => {
+  const { slug } = req.params;
+  const existing = db.getDesign(slug);
+  if (!existing) return res.status(404).json({ error: "not_found" });
+
+  const body = req.body || {};
+  const update = {};
+
+  if ("price" in body) {
+    if (body.price === "" || body.price === null) {
+      update.price_cents = null;
+    } else {
+      const dollars = Number(body.price);
+      if (Number.isNaN(dollars) || dollars < 0) {
+        return res.status(400).json({ error: "invalid_price" });
+      }
+      update.price_cents = Math.round(dollars * 100);
+    }
+  }
+  if ("shop_url" in body) {
+    update.shop_url = body.shop_url ? String(body.shop_url).trim() : null;
+  }
+  if ("visible" in body) {
+    update.visible = !!body.visible;
+  }
+  if ("featured" in body) {
+    update.featured = !!body.featured;
+  }
+
+  const saved = db.setAdminFields(slug, update);
+  res.json({ data: saved });
+});
+
+// ---- settings ----
+router.get("/settings", (req, res) => {
+  res.json(db.getSettings());
+});
+
+router.post("/settings", (req, res) => {
+  const {
+    businessName, businessEmail, hoursPerDayCapacity, leadTimeBufferDays,
+    eventModeEnabled, kioskModeEnabled, kioskIdleMinutes
+  } = req.body || {};
+  const update = {};
+  if (businessName !== undefined) update.businessName = String(businessName).trim();
+  if (businessEmail !== undefined) update.businessEmail = String(businessEmail).trim();
+  if (hoursPerDayCapacity !== undefined) {
+    const n = Number(hoursPerDayCapacity);
+    if (Number.isNaN(n) || n <= 0) return res.status(400).json({ error: "invalid_hours_per_day" });
+    update.hoursPerDayCapacity = n;
+  }
+  if (leadTimeBufferDays !== undefined) {
+    const n = Number(leadTimeBufferDays);
+    if (Number.isNaN(n) || n < 0) return res.status(400).json({ error: "invalid_buffer_days" });
+    update.leadTimeBufferDays = n;
+  }
+  if (eventModeEnabled !== undefined) update.eventModeEnabled = !!eventModeEnabled;
+  if (kioskModeEnabled !== undefined) update.kioskModeEnabled = !!kioskModeEnabled;
+  if (kioskIdleMinutes !== undefined) {
+    const n = Number(kioskIdleMinutes);
+    if (Number.isNaN(n) || n < 0.5) return res.status(400).json({ error: "invalid_kiosk_idle_minutes" });
+    update.kioskIdleMinutes = n;
+  }
+  res.json(db.updateSettings(update));
+});
+
+router.get("/smtp-status", (req, res) => {
+  res.json({ configured: mailer.isConfigured() });
+});
+
+router.post("/smtp-test", async (req, res) => {
+  try {
+    await mailer.verifyConnection();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(err.isNotConfigured ? 400 : 502).json({ ok: false, error: err.message });
+  }
+});
+
+// ---- sync ----
+let syncInProgress = false;
+
+router.post("/sync", async (req, res) => {
+  if (syncInProgress) {
+    return res.status(409).json({ error: "sync_already_running" });
+  }
+  const full = !!(req.body && req.body.full);
+  syncInProgress = true;
+  try {
+    const settings = db.getSettings();
+    const since = full ? null : settings.lastCursor;
+    let added = 0, updated = 0;
+
+    const result = await n3d.syncCatalog({
+      since,
+      onPage: async (designs) => {
+        for (const d of designs) {
+          const isNew = !db.getDesign(d.slug);
+          // new designs default to visible=true, no price, no shop link —
+          // "contact for pricing" until the admin sets them
+          db.upsertDesign(d.slug, {
+            title: d.title,
+            category: d.category,
+            image_url: d.image_url,
+            print_time: d.print_time,
+            print_time_seconds: d.print_time_seconds,
+            total_weight_grams: d.total_weight_grams,
+            round: d.round,
+            purchase_only: d.purchase_only,
+            updated_at: d.updated_at,
+            pokemon: d.pokemon,
+            filaments: d.filaments,
+            profiles: d.profiles,
+            synced_at: new Date().toISOString(),
+            visible: isNew ? true : undefined,
+            featured: isNew ? false : undefined,
+            price_cents: isNew ? null : undefined,
+            shop_url: isNew ? null : undefined
+          });
+          if (isNew) added++; else updated++;
+        }
+      }
+    });
+
+    db.updateSettings({ lastCursor: result.cursor });
+    res.json({ ok: true, added, updated, totalSeen: result.totalSeen });
+  } catch (err) {
+    const status = err.isAuth ? 502 : 500;
+    res.status(status).json({ error: err.message || "sync_failed" });
+  } finally {
+    syncInProgress = false;
+  }
+});
+
+router.get("/key-status", async (req, res) => {
+  try {
+    const info = await n3d.checkKey();
+    res.json({ ok: true, info });
+  } catch (err) {
+    res.status(err.isAuth ? 401 : 502).json({ ok: false, error: err.message });
+  }
+});
+
+// ---- quote request log ----
+router.get("/quotes", (req, res) => {
+  res.json({ data: db.listQuoteLogs() });
+});
+
+function csvEscape(val) {
+  const s = val === null || val === undefined ? "" : String(val);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+router.get("/quotes.csv", (req, res) => {
+  const rows = db.listQuoteLogs();
+  const header = ["Date", "Customer", "Email", "Items", "Estimated cost", "Lead time (days)", "Status", "Notes"];
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    const itemTitles = (r.items || []).map(i => i.title).join("; ");
+    const cost = r.totalCents != null ? "$" + (r.totalCents / 100).toFixed(2) : "";
+    const leadTime = r.leadTimeLow != null ? r.leadTimeLow + "-" + r.leadTimeHigh : "";
+    lines.push([
+      r.createdAt, r.customerName || "", r.customerEmail || "", itemTitles,
+      cost, leadTime, r.status || "", r.notes || ""
+    ].map(csvEscape).join(","));
+  }
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=quote-requests.csv");
+  res.send(lines.join("\n"));
+});
+
+module.exports = router;
