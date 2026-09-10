@@ -31,8 +31,12 @@
   const quoteRowsEl = document.getElementById("quote-rows");
   const rowsEl = document.getElementById("design-rows");
   const searchEl = document.getElementById("admin-search");
+  const selectAllCheckbox = document.getElementById("select-all-checkbox");
+  const selectedCountEl = document.getElementById("selected-count");
+  const pushSelectedBtn = document.getElementById("push-selected-btn");
 
   let allDesigns = [];
+  const selectedSlugs = new Set();
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -197,18 +201,76 @@
 
   searchEl.addEventListener("input", renderRows);
 
+  let currentList = [];
+
   function renderRows(){
     const q = searchEl.value.trim().toLowerCase();
-    const list = q ? allDesigns.filter(d => (d.title||"").toLowerCase().includes(q) || d.slug.includes(q)) : allDesigns;
+    currentList = q ? allDesigns.filter(d => (d.title||"").toLowerCase().includes(q) || d.slug.includes(q)) : allDesigns;
+    // drop selections for designs no longer in view (deleted/renamed) — keeps the set tidy
+    for(const slug of Array.from(selectedSlugs)){
+      if(!allDesigns.some(d => d.slug === slug)) selectedSlugs.delete(slug);
+    }
     rowsEl.innerHTML = "";
     const frag = document.createDocumentFragment();
-    for(const d of list) frag.appendChild(buildRow(d));
+    for(const d of currentList) frag.appendChild(buildRow(d));
     rowsEl.appendChild(frag);
+    updateSelectionUi();
   }
+
+  function updateSelectionUi(){
+    selectedCountEl.textContent = selectedSlugs.size + " selected";
+    pushSelectedBtn.disabled = selectedSlugs.size === 0 || !squareConfigured;
+    const visibleSelected = currentList.filter(d => selectedSlugs.has(d.slug)).length;
+    selectAllCheckbox.checked = currentList.length > 0 && visibleSelected === currentList.length;
+    selectAllCheckbox.indeterminate = visibleSelected > 0 && visibleSelected < currentList.length;
+  }
+
+  selectAllCheckbox.addEventListener("change", () => {
+    for(const d of currentList){
+      if(selectAllCheckbox.checked) selectedSlugs.add(d.slug);
+      else selectedSlugs.delete(d.slug);
+    }
+    renderRows();
+  });
+
+  pushSelectedBtn.addEventListener("click", async () => {
+    const slugs = Array.from(selectedSlugs);
+    if(!slugs.length) return;
+    pushSelectedBtn.disabled = true;
+    selectedCountEl.textContent = "Pushing " + slugs.length + " to Square…";
+    try{
+      const res = await fetch("/api/admin/square-push-all", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ slugs })
+      });
+      const j = await res.json();
+      if(!res.ok) throw new Error(j.error || "push failed");
+      selectedSlugs.clear();
+      await loadDesigns();
+      selectedCountEl.textContent = "Done — " + j.pushed + " pushed" + (j.failed ? ", " + j.failed + " failed" : "") + ".";
+      setTimeout(updateSelectionUi, 3000);
+    }catch(err){
+      selectedCountEl.textContent = "Failed: " + err.message;
+    }finally{
+      pushSelectedBtn.disabled = selectedSlugs.size === 0 || !squareConfigured;
+    }
+  });
 
   function buildRow(d){
     const tr = document.createElement("tr");
     if(d.visible === false) tr.classList.add("hidden-row");
+
+    const tdCheck = document.createElement("td");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedSlugs.has(d.slug);
+    checkbox.addEventListener("change", () => {
+      if(checkbox.checked) selectedSlugs.add(d.slug);
+      else selectedSlugs.delete(d.slug);
+      updateSelectionUi();
+    });
+    tdCheck.appendChild(checkbox);
+    tr.appendChild(tdCheck);
 
     const tdThumb = document.createElement("td");
     const img = document.createElement("img");
