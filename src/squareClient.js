@@ -4,6 +4,8 @@
 // Square as a catalog item with its price left at $0 so the price can be
 // set/edited from Square itself afterward.
 
+const sharp = require("sharp");
+
 const SQUARE_VERSION = "2024-06-04";
 
 function isConfigured() {
@@ -146,10 +148,31 @@ async function pushDesign(design) {
   return result;
 }
 
+// Square's catalog image upload only accepts JPEG or PNG — not WebP, which
+// is what N3D serves. Re-encode anything else: PNG if the source has
+// transparency (to keep it), JPEG otherwise.
+const SQUARE_OK_FORMATS = new Set(["jpeg", "png"]);
+
+async function normalizeImageForSquare(buffer) {
+  const meta = await sharp(buffer).metadata();
+  if (SQUARE_OK_FORMATS.has(meta.format)) {
+    const ext = meta.format === "jpeg" ? "jpg" : meta.format;
+    return { buffer, contentType: "image/" + meta.format, filename: "design." + ext };
+  }
+  if (meta.hasAlpha) {
+    const out = await sharp(buffer).png().toBuffer();
+    return { buffer: out, contentType: "image/png", filename: "design.png" };
+  }
+  const out = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+  return { buffer: out, contentType: "image/jpeg", filename: "design.jpg" };
+}
+
 async function uploadImage({ imageUrl, itemId, existingImageId, caption }) {
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error("Couldn't download design image to upload to Square");
-  const blob = await imgRes.blob();
+  const raw = Buffer.from(await imgRes.arrayBuffer());
+  const { buffer, contentType, filename } = await normalizeImageForSquare(raw);
+  const blob = new Blob([buffer], { type: contentType });
 
   const request = existingImageId
     ? { idempotency_key: idempotencyKey() }
@@ -161,7 +184,7 @@ async function uploadImage({ imageUrl, itemId, existingImageId, caption }) {
 
   const form = new FormData();
   form.append("request", JSON.stringify(request));
-  form.append("image_file", blob, "design.jpg");
+  form.append("image_file", blob, filename);
 
   const path = existingImageId
     ? "/v2/catalog/images/" + encodeURIComponent(existingImageId)
