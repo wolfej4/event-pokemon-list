@@ -36,6 +36,7 @@ header.hero p{ color:var(--text-muted); margin:0; font-size:0.95rem; }
 }
 #search-input:focus{ border-color:var(--teal); }
 .chip-row{ display:flex; gap:7px; overflow-x:auto; -ms-overflow-style:none; scrollbar-width:none; }
+.chip-row + .chip-row{ margin-top:8px; }
 .chip-row::-webkit-scrollbar{ display:none; }
 .chip{
   flex:none; padding:6px 12px; border-radius:20px; border:1px solid var(--border);
