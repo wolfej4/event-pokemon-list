@@ -101,6 +101,14 @@ function setAdminFields(slug, { price_cents, shop_url, visible, featured }) {
   return existing;
 }
 
+function setSquareFields(slug, fields) {
+  const existing = state.designs[slug];
+  if (!existing) return null;
+  Object.assign(existing, fields);
+  scheduleWrite();
+  return existing;
+}
+
 // ---- quote logs ----
 function addQuoteLog(entry) {
   const record = Object.assign({
@@ -137,7 +145,7 @@ function flushSync() {
 }
 
 module.exports = {
-  upsertDesign, getDesign, allDesigns, setAdminFields,
+  upsertDesign, getDesign, allDesigns, setAdminFields, setSquareFields,
   addQuoteLog, listQuoteLogs,
   getSettings, updateSettings, flushSync
 };

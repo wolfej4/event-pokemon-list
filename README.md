@@ -159,6 +159,30 @@ stack's environment variables so the admin session cookie requires HTTPS.
 - **Uncheck Visible** to pull a design off the public site without deleting
   anything — your price/link stay saved if you turn it back on later.
 
+## Pushing designs to Square
+
+`/admin` → **Square catalog push** lets you push a design's photo and
+description into your Square catalog as an item, with its price left at
+**$0** so you can set the real price yourself in Square (Square Online,
+Square POS, wherever you manage pricing). Push a single design from its row
+in the Designs table, or use **Push all visible designs to Square** to send
+everything at once.
+
+Re-pushing an already-synced design updates the same Square item in place
+(name, description, and photo if it changed) instead of creating a
+duplicate.
+
+To enable it, set in your environment:
+
+- `SQUARE_ACCESS_TOKEN` — a Square API access token (Square Developer
+  Dashboard → your application → Credentials)
+- `SQUARE_LOCATION_ID` — the location the item should be attached to
+- `SQUARE_ENVIRONMENT` — `sandbox` to test against Square's sandbox, or
+  leave unset for production
+
+Leave these unset to skip the feature entirely — nothing else in the app
+depends on them.
+
 ## Notes / things worth knowing
 
 - Data persistence: `docker-compose.yml` mounts a named volume
