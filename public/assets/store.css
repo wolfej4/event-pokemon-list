@@ -1,8 +1,15 @@
 header.hero{
-  padding: 40px 20px 26px; text-align:center; border-bottom:1px solid var(--border);
+  position:relative; padding: 40px 20px 26px; text-align:center; border-bottom:1px solid var(--border);
 }
 header.hero h1{ font-size:1.7rem; margin:0 0 6px; letter-spacing:-0.02em; font-weight:650; }
 header.hero p{ color:var(--text-muted); margin:0; font-size:0.95rem; }
+#admin-link{
+  position:absolute; top:10px; right:10px; width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; color:var(--text-faint);
+  font-size:1.05rem; border:1px solid var(--border); background:var(--surface);
+  opacity:0.55; transition:opacity .15s;
+}
+#admin-link:hover, #admin-link:focus{ opacity:1; color:var(--text); }
 
 #offline-banner{
   display:none; background:var(--amber-dim); color:#f4d3ba; text-align:center;
