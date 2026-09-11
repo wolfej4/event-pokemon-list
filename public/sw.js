@@ -10,7 +10,10 @@ const APP_SHELL = [
   "/assets/theme.css",
   "/assets/store.css",
   "/assets/store.js",
-  "/manifest.json"
+  "/manifest.json",
+  "/assets/icon-192.png",
+  "/assets/icon-512.png",
+  "/assets/apple-touch-icon.png"
 ];
 const API_PATHS = ["/api/public/designs", "/api/public/settings"];
 

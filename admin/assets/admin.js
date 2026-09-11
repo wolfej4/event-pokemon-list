@@ -513,5 +513,9 @@
     }
   });
 
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("/admin/sw.js").catch(() => {});
+  }
+
   checkSession();
 })();
