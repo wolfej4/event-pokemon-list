@@ -1,5 +1,6 @@
 "use strict";
 const express = require("express");
+const QRCode = require("qrcode");
 const db = require("../db");
 const n3d = require("../n3dClient");
 const square = require("../squareClient");
@@ -112,6 +113,27 @@ router.post("/smtp-test", async (req, res) => {
   } catch (err) {
     res.status(err.isNotConfigured ? 400 : 502).json({ ok: false, error: err.message });
   }
+});
+
+// ---- storefront QR code ----
+// Encodes whatever host/protocol the browser used to reach /admin, so the
+// code always points at wherever this instance is actually being served
+// from (custom domain, tunnel, raw IP:port, whatever) without needing that
+// URL configured anywhere.
+router.get("/qrcode.png", async (req, res) => {
+  const url = req.protocol + "://" + req.get("host") + "/";
+  try {
+    const png = await QRCode.toBuffer(url, { width: 640, margin: 2 });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-store"); // host can change between requests (different domain/tunnel)
+    res.send(png);
+  } catch (err) {
+    res.status(500).json({ error: "qrcode_failed" });
+  }
+});
+
+router.get("/qrcode-url", (req, res) => {
+  res.json({ url: req.protocol + "://" + req.get("host") + "/" });
 });
 
 // ---- sync ----

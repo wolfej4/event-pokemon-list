@@ -65,3 +65,16 @@ td input.price{ width:80px; font-family:var(--mono); }
 .toggle-row{ margin-bottom:10px; }
 .toggle-label{ display:flex; align-items:center; gap:9px; font-size:0.85rem; cursor:pointer; }
 .toggle-label input{ width:16px; height:16px; }
+
+#qr-code-wrap{
+  display:inline-block; background:#fff; padding:14px; border-radius:10px; line-height:0;
+}
+#qr-code-img{ width:200px; height:200px; display:block; }
+@media print{
+  body *{ visibility:hidden; }
+  #qr-panel, #qr-panel *{ visibility:visible; }
+  #qr-panel{ position:absolute; top:0; left:0; right:0; border:none; text-align:center; }
+  #qr-panel h2{ font-size:1.6rem; }
+  #qr-code-wrap{ margin:0 auto; }
+  #qr-copy-btn, #qr-print-btn, #qr-status{ display:none; }
+}
