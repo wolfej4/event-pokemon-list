@@ -62,6 +62,22 @@
       <span class="row-status" id="settings-status"></span>
     </div>
 
+    <div class="panel" id="qr-panel">
+      <h2>Storefront QR code</h2>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 14px;">
+        Scan this with a phone to pull up the storefront — print it for a
+        table sign, or show it on a screen. It always points at whatever
+        address you're viewing this admin panel from right now.
+      </p>
+      <div id="qr-code-wrap">
+        <img id="qr-code-img" alt="Storefront QR code">
+      </div>
+      <div id="qr-url" style="font-family:var(--mono);font-size:0.8rem;color:var(--text-muted);margin:12px 0;word-break:break-all;"></div>
+      <button class="btn small" id="qr-copy-btn">Copy link</button>
+      <button class="btn small" id="qr-print-btn">Print</button>
+      <span class="row-status" id="qr-status"></span>
+    </div>
+
     <div class="panel">
       <h2>Event &amp; kiosk mode</h2>
       <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 12px;">

@@ -37,6 +37,11 @@
   const selectAllCheckbox = document.getElementById("select-all-checkbox");
   const selectedCountEl = document.getElementById("selected-count");
   const pushSelectedBtn = document.getElementById("push-selected-btn");
+  const qrCodeImg = document.getElementById("qr-code-img");
+  const qrUrlEl = document.getElementById("qr-url");
+  const qrCopyBtn = document.getElementById("qr-copy-btn");
+  const qrPrintBtn = document.getElementById("qr-print-btn");
+  const qrStatus = document.getElementById("qr-status");
 
   let allDesigns = [];
   const selectedSlugs = new Set();
@@ -58,8 +63,29 @@
     loginScreen.style.display = "none";
     dashboard.style.display = "block";
     await loadSquareStatus();
-    await Promise.all([loadSettings(), loadDesigns(), loadSmtpStatus(), loadQuotes()]);
+    await Promise.all([loadSettings(), loadDesigns(), loadSmtpStatus(), loadQuotes(), loadQrCode()]);
   }
+
+  // ---- storefront QR code ----
+  async function loadQrCode(){
+    qrCodeImg.src = "/api/admin/qrcode.png?t=" + Date.now(); // bust the cache if the host changes between visits
+    try{
+      const r = await fetch("/api/admin/qrcode-url").then(r => r.json());
+      qrUrlEl.textContent = r.url;
+    }catch(err){
+      qrUrlEl.textContent = "";
+    }
+  }
+  qrCopyBtn.addEventListener("click", async () => {
+    try{
+      await navigator.clipboard.writeText(qrUrlEl.textContent);
+      qrStatus.textContent = "Copied";
+      setTimeout(() => qrStatus.textContent = "", 1500);
+    }catch(err){
+      qrStatus.textContent = "Couldn't copy — copy it manually.";
+    }
+  });
+  qrPrintBtn.addEventListener("click", () => window.print());
 
   loginBtn.addEventListener("click", doLogin);
   pwInput.addEventListener("keydown", e => { if(e.key === "Enter") doLogin(); });

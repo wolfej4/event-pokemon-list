@@ -68,6 +68,16 @@ with separate icons, so you can add one or both depending on whether you
 need the customer-facing catalog, your own admin tools, or both on the
 device.
 
+## Getting customers to the storefront: QR code
+
+`/admin` → **Storefront QR code** shows a QR code customers can scan with
+their phone to pull up the storefront directly — handy for a table sign at
+an event. It's generated from whatever host/URL you're currently viewing
+the admin panel from, so it always points at the right place (custom
+domain, tunnel, raw IP:port, whatever) without needing that URL configured
+anywhere. Use **Print** for a paper sign, or **Copy link** to share it
+another way.
+
 ## Offline resilience
 
 The storefront registers a service worker that caches the app shell and the
