@@ -191,8 +191,19 @@ async function pushOne(slug) {
     const err = new Error("not_found");
     throw err;
   }
-  const fields = await square.pushDesign(design);
-  return db.setSquareFields(slug, fields);
+  try {
+    const fields = await square.pushDesign(design);
+    return db.setSquareFields(slug, Object.assign(
+      { square_sync_error: null, square_sync_error_at: null },
+      fields
+    ));
+  } catch (err) {
+    db.setSquareFields(slug, {
+      square_sync_error: err.message || "square_push_failed",
+      square_sync_error_at: new Date().toISOString()
+    });
+    throw err;
+  }
 }
 
 router.post("/designs/:slug/square-push", async (req, res) => {
@@ -230,7 +241,8 @@ router.post("/square-push-all", async (req, res) => {
         await pushOne(slug);
         pushed++;
       } catch (err) {
-        failures.push({ slug, error: err.message || "failed" });
+        const design = db.getDesign(slug);
+        failures.push({ slug, title: design ? design.title : slug, error: err.message || "failed" });
       }
       await sleep(150); // be polite to Square's rate limits
     }

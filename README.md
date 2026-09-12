@@ -58,11 +58,20 @@ Two independent toggles in `/admin` → Event & kiosk mode:
   person's session on a shared tablet. It doesn't lock the device itself —
   see "Running this as an actual kiosk" below for that.
 
+## Installing on an iPad (or any phone/tablet)
+
+Both the storefront and the admin panel are installable PWAs — from Safari,
+tap **Share → Add to Home Screen** on `/` (storefront) and/or `/admin`
+(admin panel). Each gets its own home screen icon and opens full-screen
+without Safari's address bar, like a native app. They're separate installs
+with separate icons, so you can add one or both depending on whether you
+need the customer-facing catalog, your own admin tools, or both on the
+device.
+
 ## Offline resilience
 
-The storefront (not the admin panel) registers a service worker that
-caches the app shell and the last-fetched catalog. If the connection drops
-mid-event:
+The storefront registers a service worker that caches the app shell and the
+last-fetched catalog, so it keeps working if the connection drops mid-event:
 
 - The page still loads and shows the last synced catalog, with a banner
   noting it's offline and when it was last synced.
@@ -74,6 +83,13 @@ mid-event:
 This depends on the device having loaded the app at least once while
 online. Do a sync + load the storefront on the device before you leave for
 an event with uncertain wifi.
+
+The admin panel also registers a service worker (so it's installable and
+launches instantly), but it deliberately only caches its own HTML/CSS/JS —
+never `/api/admin/*`. Admin data (pricing, quotes, sync/Square status) is
+sensitive and needs to stay current, so it always hits the network; the
+admin panel simply won't load new data while offline instead of showing you
+something stale.
 
 ## Running this as an actual kiosk
 
