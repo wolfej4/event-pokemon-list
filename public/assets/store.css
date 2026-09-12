@@ -88,6 +88,19 @@ main{ max-width:1100px; margin:0 auto; padding:16px; }
 .card-price{ font-family:var(--mono); font-size:0.86rem; color:var(--teal); }
 .card-price.unset{ color:var(--text-faint); font-size:0.72rem; }
 
+@media (max-width:520px){
+  main{ padding:10px; }
+  #grid, .grid{ grid-template-columns: repeat(3, 1fr); gap:8px; }
+  .card{ border-radius:9px; }
+  .badge{ top:4px; right:4px; font-size:0.52rem; padding:1px 5px; }
+  .sprite-badge{ bottom:4px; right:4px; width:22px; height:22px; border-radius:6px; padding:2px; }
+  .quote-toggle{ top:4px; left:4px; width:20px; height:20px; font-size:0.72rem; }
+  .card-body{ padding:6px 6px 8px; }
+  .card-title{ font-size:0.68rem; line-height:1.2; margin-bottom:4px; }
+  .card-price{ font-size:0.68rem; }
+  .card-price.unset{ font-size:0.58rem; }
+}
+
 /* modal */
 #modal-backdrop{
   position:fixed; inset:0; background:rgba(10,11,14,0.72); z-index:50;
