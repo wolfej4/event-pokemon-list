@@ -139,6 +139,7 @@ router.post("/sync", async (req, res) => {
             title: d.title,
             category: d.category,
             image_url: d.image_url,
+            sprite_url: d.sprite_url,
             print_time: d.print_time,
             print_time_seconds: d.print_time_seconds,
             total_weight_grams: d.total_weight_grams,

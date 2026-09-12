@@ -21,6 +21,7 @@ function toPublicDesign(d) {
     title: d.title,
     category: d.category,
     image_url: d.image_url,
+    sprite_url: d.sprite_url || null,
     print_time: d.print_time,
     total_weight_grams: d.total_weight_grams,
     round: d.round,
