@@ -174,6 +174,12 @@ stack's environment variables so the admin session cookie requires HTTPS.
   (see "Quotes: how it works" above).
 - **Uncheck Visible** to pull a design off the public site without deleting
   anything — your price/link stay saved if you turn it back on later.
+- **Pixel-art sprites**: character (Pokémon) designs get a small pixel-art
+  sprite badge on their card and detail photo automatically once N3D
+  generates one — no admin action needed, it just shows up after a sync.
+  Poke Balls, stands, and Extras don't have sprites (they aren't Pokémon),
+  and a brand-new character design may take a sync or two before its sprite
+  appears.
 
 ## Pushing designs to Square
 

@@ -247,6 +247,14 @@
       const b = document.createElement("div"); b.className = "badge"; b.textContent = "limited";
       thumbWrap.appendChild(b);
     }
+    if(d.sprite_url){
+      const spriteWrap = document.createElement("div");
+      spriteWrap.className = "sprite-badge";
+      const sprite = document.createElement("img");
+      sprite.src = d.sprite_url; sprite.loading = "lazy"; sprite.alt = "";
+      spriteWrap.appendChild(sprite);
+      thumbWrap.appendChild(spriteWrap);
+    }
     const qToggle = document.createElement("button");
     qToggle.className = "quote-toggle" + (inCart(d.slug) ? " added" : "");
     qToggle.textContent = inCart(d.slug) ? "✓" : "+";
@@ -467,7 +475,12 @@
     const poke = d.pokemon;
     let html = "";
     html += '<button class="modal-close" id="modal-close-btn">✕</button>';
-    if(d.image_url) html += '<img class="modal-hero" src="' + d.image_url + '" alt="">';
+    if(d.image_url){
+      html += '<div class="modal-hero-wrap">';
+      html += '<img class="modal-hero" src="' + escapeHtml(d.image_url) + '" alt="">';
+      if(d.sprite_url) html += '<div class="sprite-badge modal-sprite-badge"><img src="' + escapeHtml(d.sprite_url) + '" alt=""></div>';
+      html += '</div>';
+    }
     html += '<div class="modal-body">';
     html += '<h2>' + escapeHtml(d.title) + '</h2>';
     html += '<div class="modal-sub">';
